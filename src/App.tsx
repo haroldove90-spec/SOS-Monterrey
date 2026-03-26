@@ -1,24 +1,27 @@
 import { useState } from 'react';
 import { SOSButton } from './components/SOSButton';
 import { CameraOverlay } from './components/CameraOverlay';
+import { LiveMap } from './components/LiveMap';
 import { useUploadEvidence } from './hooks/useUploadEvidence';
-import { Shield, Camera, CheckCircle2 } from 'lucide-react';
+import { useLiveTracking } from './hooks/useLiveTracking';
+import { Shield, Camera, CheckCircle2, Map as MapIcon, Power } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 
 export default function App() {
   const [showCamera, setShowCamera] = useState(false);
+  const [isTrackingActive, setIsTrackingActive] = useState(true);
   const [lastEvidence, setLastEvidence] = useState<string | null>(null);
+  
+  const userId = 'user_123'; // Mock user ID
   const { uploadPlate, uploading } = useUploadEvidence();
+  const { currentLocation } = useLiveTracking(userId, isTrackingActive);
 
   const handleSOS = () => {
     console.log('ALERTA ACTIVADA');
   };
 
   const handleCapture = async () => {
-    // Simulación de captura (en Expo usarías cameraRef.current.takePictureAsync)
     const mockUri = 'https://picsum.photos/seed/plate/800/600';
-    const userId = 'user_123'; // Esto vendría de auth.currentUser.uid
-    
     const url = await uploadPlate(mockUri, userId);
     if (url) {
       setLastEvidence(url);
@@ -27,9 +30,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-[#D4AF37] selection:text-black overflow-hidden">
+    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-[#D4AF37] selection:text-black overflow-hidden pb-24">
       {/* Header Premium */}
-      <header className="flex items-center justify-between px-8 py-6 border-b border-white/5">
+      <header className="flex items-center justify-between px-8 py-6 border-b border-white/5 bg-black/50 backdrop-blur-xl sticky top-0 z-40">
         <div className="flex items-center gap-2">
           <Shield className="h-6 w-6 text-[#D4AF37]" />
           <h1 className="font-serif text-2xl tracking-tight italic">LuxGuard</h1>
@@ -41,27 +44,49 @@ export default function App() {
           >
             <Camera className="h-5 w-5 text-[#D4AF37]" />
           </button>
-          <div className="h-2 w-2 rounded-full bg-[#D4AF37] animate-pulse shadow-[0_0_10px_#D4AF37]" />
+          <button 
+            onClick={() => setIsTrackingActive(!isTrackingActive)}
+            className={`p-2 rounded-full border transition-all ${isTrackingActive ? 'bg-[#D4AF37]/10 border-[#D4AF37]' : 'bg-white/5 border-white/10'}`}
+          >
+            <Power className={`h-5 w-5 ${isTrackingActive ? 'text-[#D4AF37]' : 'text-white/20'}`} />
+          </button>
         </div>
       </header>
 
-      <main className="flex flex-col items-center justify-center px-6 pt-12">
+      <main className="flex flex-col items-center px-6 pt-8">
+        {/* Mapa de Seguimiento */}
+        <div className="w-full max-w-md mb-12">
+          <LiveMap userId={userId} userLocation={currentLocation} />
+          <div className="mt-4 flex justify-between items-center px-2">
+            <div className="flex flex-col">
+              <span className="text-[10px] uppercase tracking-widest text-white/30">Coordenadas</span>
+              <span className="text-[11px] font-mono text-[#D4AF37]">
+                {currentLocation ? `${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}` : 'Buscando señal...'}
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] uppercase tracking-widest text-white/30">Precisión</span>
+              <span className="text-[11px] font-mono text-[#D4AF37]">Alta</span>
+            </div>
+          </div>
+        </div>
+
         <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold mb-4 tracking-tighter">Sistema de Emergencia</h2>
-          <p className="text-white/40 max-w-xs mx-auto text-sm uppercase tracking-[0.2em]">
-            Protección de élite activa 24/7
+          <h2 className="text-4xl font-bold mb-2 tracking-tighter">SOS Monterrey</h2>
+          <p className="text-white/40 max-w-xs mx-auto text-[10px] uppercase tracking-[0.3em]">
+            Monitoreo en tiempo real activo
           </p>
         </div>
 
         <SOSButton onActivate={handleSOS} />
 
-        <div className="mt-20 grid grid-cols-2 gap-4 w-full max-w-md">
+        <div className="mt-16 grid grid-cols-2 gap-4 w-full max-w-md">
           <motion.div 
             whileHover={{ scale: 1.02 }}
             className="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col gap-2"
           >
             <span className="text-[10px] uppercase tracking-widest text-white/30">Estado</span>
-            <span className="text-sm font-semibold text-[#D4AF37]">Encriptado</span>
+            <span className="text-sm font-semibold text-[#D4AF37]">Protegido</span>
           </motion.div>
           <motion.div 
             whileHover={{ scale: 1.02 }}
@@ -70,7 +95,7 @@ export default function App() {
             <span className="text-[10px] uppercase tracking-widest text-white/30">Evidencia</span>
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-[#D4AF37]">
-                {lastEvidence ? 'Registrada' : 'Pendiente'}
+                {lastEvidence ? 'Registrada' : 'Ninguna'}
               </span>
               {lastEvidence && <CheckCircle2 className="h-3 w-3 text-[#D4AF37]" />}
             </div>
@@ -105,8 +130,16 @@ export default function App() {
       </AnimatePresence>
 
       {/* Footer / Navigation Mockup */}
-      <nav className="fixed bottom-0 w-full px-8 py-8 flex justify-around items-center bg-gradient-to-t from-black to-transparent">
-        <div className="h-1 w-12 rounded-full bg-white/20" />
+      <nav className="fixed bottom-0 w-full px-8 py-6 flex justify-around items-center bg-black/80 backdrop-blur-xl border-t border-white/5 z-40">
+        <div className="flex flex-col items-center gap-1">
+          <Shield className="h-5 w-5 text-[#D4AF37]" />
+          <span className="text-[8px] uppercase tracking-widest text-[#D4AF37]">Seguridad</span>
+        </div>
+        <div className="flex flex-col items-center gap-1 opacity-30">
+          <MapIcon className="h-5 w-5 text-white" />
+          <span className="text-[8px] uppercase tracking-widest text-white">Mapa</span>
+        </div>
+        <div className="h-1 w-12 rounded-full bg-white/10 absolute top-2" />
       </nav>
     </div>
   );
