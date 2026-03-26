@@ -1,5 +1,5 @@
 {
-  "name": "SOS Premium App",
+  "name": "S.O.S. Monterrey",
   "description": "Aplicación de alerta SOS con estética premium, animaciones de pulso y conexión a Supabase.",
   "requestFramePermissions": ["camera", "geolocation", "microphone"]
 }

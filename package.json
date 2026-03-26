@@ -16,11 +16,14 @@
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "dotenv": "^17.2.3",
+    "expo-av": "^16.0.8",
+    "expo-file-system": "^55.0.11",
     "express": "^4.21.2",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-router-dom": "^7.13.2",
     "vite": "^6.2.0"
   },
   "devDependencies": {

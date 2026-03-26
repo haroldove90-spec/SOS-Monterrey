@@ -24,10 +24,11 @@ serve(async (req) => {
 
     // El payload viene del Trigger de la tabla 'alerts'
     const { record } = await req.json()
-    const { user_id, type, evidence_url } = record
+    const { id: alert_id, user_id, type, security_token } = record
 
-    if (type !== 'SOS_ACTIVATED') {
-      return new Response(JSON.stringify({ message: 'Not an SOS alert' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    const alertTypes = ['SOS_ACTIVATED', 'silent', 'SOS_AUTOMATIC_CHECKIN_EXPIRED']
+    if (!alertTypes.includes(type)) {
+      return new Response(JSON.stringify({ message: 'Not a monitored alert type' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     // 1. Obtener datos del usuario y sus contactos de confianza
@@ -49,20 +50,28 @@ serve(async (req) => {
       .eq('user_id', user_id)
       .order('timestamp', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     const lat = lastLocation?.latitude || 0
     const lon = lastLocation?.longitude || 0
     const mapUrl = `https://www.google.com/maps?q=${lat},${lon}`
     
-    let messageText = `¡EMERGENCIA! ${userProfile?.full_name || 'Un usuario'} ha activado SOS Monterrey en [${lat}, ${lon}]. Sigue su ubicación aquí: ${mapUrl}`
+    // URL del Portal de Rescate
+    const appUrl = Deno.env.get('APP_URL') || 'https://ais-dev-xshvbpbavqnyqygvlemdwl-22265430521.us-west2.run.app'
+    const rescueUrl = `${appUrl}/rescue/${alert_id}/${security_token}`
+    
+    let messageText = `¡EMERGENCIA! ${userProfile?.full_name || 'Un usuario'} ha activado SOS Monterrey. RASTREO EN VIVO: ${rescueUrl}`
     let pushTitle = '🚨 EMERGENCIA SOS MONTERREY'
-    let pushBody = `${userProfile?.full_name} necesita ayuda inmediata.`
+    let pushBody = `${userProfile?.full_name} necesita ayuda inmediata. RASTREO EN VIVO: ${rescueUrl}`
 
     if (type === 'silent') {
-      messageText = `Atención: ${userProfile?.full_name} ha ingresado su código de alerta silenciosa. Monitoreo discreto activado. Ubicación: ${mapUrl}`
+      messageText = `Atención: ${userProfile?.full_name} ha ingresado su código de alerta silenciosa. Monitoreo discreto activado. RASTREO EN VIVO: ${rescueUrl}`
       pushTitle = '⚠️ ALERTA DISCRETA'
-      pushBody = `Protocolo de monitoreo silencioso activado para ${userProfile?.full_name}.`
+      pushBody = `Protocolo de monitoreo silencioso activado para ${userProfile?.full_name}. RASTREO EN VIVO: ${rescueUrl}`
+    } else if (type === 'SOS_AUTOMATIC_CHECKIN_EXPIRED') {
+      messageText = `¡ALERTA AUTOMÁTICA! ${userProfile?.full_name} no ha confirmado su llegada a salvo. RASTREO EN VIVO: ${rescueUrl}`
+      pushTitle = '⏳ CHECK-IN EXPIRADO'
+      pushBody = `${userProfile?.full_name} no reportó su llegada. RASTREO EN VIVO: ${rescueUrl}`
     }
 
     // 3. Enviar Notificaciones Push vía Expo
