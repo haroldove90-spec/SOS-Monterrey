@@ -1,12 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertTriangle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface SOSButtonProps {
   onActivate: () => void;
+  userId?: string;
 }
 
-export const SOSButton: React.FC<SOSButtonProps> = ({ onActivate }) => {
+export const SOSButton: React.FC<SOSButtonProps> = ({ onActivate, userId }) => {
   const [isPressing, setIsPressing] = useState(false);
   const [progress, setProgress] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -39,8 +41,25 @@ export const SOSButton: React.FC<SOSButtonProps> = ({ onActivate }) => {
     }
   };
 
-  const handleActivate = () => {
+  const handleActivate = async () => {
     onActivate();
+    
+    // 1. Insertar alerta en Supabase para disparar el Edge Function
+    if (userId) {
+      try {
+        await supabase.from('alerts').insert([
+          { 
+            user_id: userId, 
+            type: 'SOS_ACTIVATED',
+            created_at: new Date().toISOString()
+          }
+        ]);
+        console.log('Alerta SOS registrada en base de datos');
+      } catch (err) {
+        console.error('Error registrando alerta SOS:', err);
+      }
+    }
+
     endPress();
   };
 

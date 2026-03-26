@@ -1,23 +1,81 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SOSButton } from './components/SOSButton';
 import { CameraOverlay } from './components/CameraOverlay';
 import { LiveMap } from './components/LiveMap';
+import { NotificationBanner } from './components/NotificationBanner';
+import { PinEntry } from './components/PinEntry';
+import { DecoyInterface } from './components/DecoyInterface';
 import { useUploadEvidence } from './hooks/useUploadEvidence';
 import { useLiveTracking } from './hooks/useLiveTracking';
 import { Shield, Camera, CheckCircle2, Map as MapIcon, Power } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
+import { supabase } from './lib/supabase';
+
+type AuthState = 'locked' | 'authenticated' | 'decoy';
 
 export default function App() {
+  const [authState, setAuthState] = useState<AuthState>('locked');
   const [showCamera, setShowCamera] = useState(false);
   const [isTrackingActive, setIsTrackingActive] = useState(true);
   const [lastEvidence, setLastEvidence] = useState<string | null>(null);
+  const [showNotification, setShowNotification] = useState(false);
   
   const userId = 'user_123'; // Mock user ID
   const { uploadPlate, uploading } = useUploadEvidence();
   const { currentLocation } = useLiveTracking(userId, isTrackingActive);
 
+  const handleAuthSuccess = (type: 'real' | 'duress') => {
+    if (type === 'real') {
+      setAuthState('authenticated');
+    } else {
+      setAuthState('decoy');
+      triggerSilentSOS();
+    }
+  };
+
+  const triggerSilentSOS = async () => {
+    console.log('SILENT SOS ACTIVATED');
+    try {
+      // 1. Disparar alerta silenciosa en Supabase
+      await supabase.from('alerts').insert([
+        { 
+          user_id: userId, 
+          type: 'silent',
+          created_at: new Date().toISOString()
+        }
+      ]);
+
+      // 2. Simular grabación de audio ambiente (en Expo usarías expo-av)
+      console.log('Iniciando grabación de audio ambiente en segundo plano...');
+      // Subiríamos fragmentos de 30s al bucket 'evidence-audio'
+    } catch (err) {
+      console.error('Error triggering silent SOS:', err);
+    }
+  };
+
+  // Suscripción Realtime para alertas
+  useEffect(() => {
+    const channel = supabase
+      .channel('alerts-monitor')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'alerts' },
+        (payload) => {
+          if (payload.new.user_id !== userId) {
+            setShowNotification(true);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const handleSOS = () => {
     console.log('ALERTA ACTIVADA');
+    setTimeout(() => setShowNotification(true), 500);
   };
 
   const handleCapture = async () => {
@@ -29,8 +87,23 @@ export default function App() {
     }
   };
 
+  if (authState === 'locked') {
+    return <PinEntry onSuccess={handleAuthSuccess} />;
+  }
+
+  if (authState === 'decoy') {
+    return <DecoyInterface />;
+  }
+
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-[#D4AF37] selection:text-black overflow-hidden pb-24">
+      <NotificationBanner 
+        isVisible={showNotification}
+        userName="Harold Ove"
+        onClose={() => setShowNotification(false)}
+        onViewMap={() => setShowNotification(false)}
+      />
+
       {/* Header Premium */}
       <header className="flex items-center justify-between px-8 py-6 border-b border-white/5 bg-black/50 backdrop-blur-xl sticky top-0 z-40">
         <div className="flex items-center gap-2">
@@ -78,7 +151,7 @@ export default function App() {
           </p>
         </div>
 
-        <SOSButton onActivate={handleSOS} />
+        <SOSButton onActivate={handleSOS} userId={userId} />
 
         <div className="mt-16 grid grid-cols-2 gap-4 w-full max-w-md">
           <motion.div 
